@@ -1,0 +1,368 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="schMng">
+
+	<!-- 일정 조회 -->
+	<select id="selectSchMngList"  parameterType="map" resultType="camelMap">
+		/* schMng.selectSchMngList */
+		SELECT SCHEDULE_MNG_SEQ
+				, COMPANY_SEQ
+				, (SELECT COMPANY_NM FROM T_COMPANY WHERE COMPANY_SEQ = T_SCHEDULE_MNG.COMPANY_SEQ) AS COMPANY_NM
+				, MNG_ID
+				, (SELECT USER_NM FROM T_MEMBER WHERE USER_ID = T_SCHEDULE_MNG.MNG_ID) AS MNG_NM
+				, START_DT
+				, START_TIME
+				, END_DT
+				, END_TIME
+				, SCHEDULE_GUBUN
+				, SCHEDULE_MEMO
+				, CONFIRM_ID
+				, CONFIRM_YN 
+				, CONFIRM_DATE
+				, COLOR_CD
+				, DEL_YN
+				, DEL_DT
+				, REG_DT
+		FROM T_SCHEDULE_MNG
+		WHERE DEL_YN = 'N'
+		AND SCHEDULE_GUBUN IN ('01', '02', '04')
+		<if test="auth !='02' and userId != '' and userId != null">
+			AND SCHEDULE_MNG_SEQ IN (
+										SELECT SCHEDULE_MNG_SEQ
+										FROM T_SCHEDULE_MNG
+										WHERE MNG_ID = #{userId}
+										UNION ALL
+										SELECT SCHEDULE_MNG_SEQ
+										FROM T_SCHEDULE_MNG_USER
+										WHERE USER_ID =  #{userId}
+									)	
+		</if>		        	
+	</select>
+	
+	<!-- 일정 상세 조회 -->
+	<select id="selectSchMngView"  parameterType="map" resultType="camelMap">
+		/* schMng.selectSchMngView */
+		SELECT SCHEDULE_MNG_SEQ
+				, COMPANY_SEQ
+				, (SELECT COMPANY_NM FROM T_COMPANY WHERE COMPANY_SEQ = T_SCHEDULE_MNG.COMPANY_SEQ) AS COMPANY_NM
+				, (SELECT COMPANY_ADDR FROM T_COMPANY WHERE COMPANY_SEQ = T_SCHEDULE_MNG.COMPANY_SEQ) AS COMPANY_ADDR
+				, MNG_ID
+				, (SELECT USER_NM FROM T_MEMBER WHERE USER_ID = T_SCHEDULE_MNG.MNG_ID) AS MNG_NM
+				, START_DT
+				, START_TIME
+				, END_DT
+				, END_TIME
+				, SCHEDULE_GUBUN
+				, SCHEDULE_MEMO
+				, CONFIRM_ID
+				, CONFIRM_YN 
+				, CONFIRM_DATE
+				, (SELECT USER_NM FROM T_MEMBER WHERE USER_ID = T_SCHEDULE_MNG.CONFIRM_ID) AS CONFIRM_NM
+				, (
+					SELECT CODE_NM
+					FROM T_CODE
+					WHERE GROUP_CODE = 'POSITION'
+					AND CODE = (
+								SELECT POSITION
+								FROM T_MEMBER
+								WHERE USER_ID = T_SCHEDULE_MNG.CONFIRM_ID
+								AND DEL_YN ='N'
+								)
+					)AS CONFIRM_POSITION_NM	
+				, COLOR_CD
+				, DEL_YN
+				, DEL_DT
+				, REG_DT
+				, (SELECT REPORT_SEQ FROM T_REPORT WHERE SCHEDULE_MNG_SEQ = #{scheduleMngSeq}) AS REPORT_SEQ
+				, (SELECT CONFIRM_YN FROM T_REPORT WHERE SCHEDULE_MNG_SEQ = #{scheduleMngSeq}) AS MNG_YN
+		FROM T_SCHEDULE_MNG
+		WHERE SCHEDULE_MNG_SEQ = #{scheduleMngSeq}
+	</select>
+	
+	<!-- 일정 구분 조회  -->
+	<select id="selectSchGubunList"  parameterType="map" resultType="camelMap">
+		/* schMng.selectSchGubunList */
+		SELECT CODE 
+			, CODE_NM
+		FROM T_CODE
+		WHERE GROUP_CODE = 'SCHEDULE_GUBUN'
+		AND DEL_YN = 'N'
+		ORDER BY ORD_DISP
+	</select>
+	
+	<!-- 색상 조회  -->
+	<select id="selectColorList"  parameterType="map" resultType="camelMap">
+		/* schMng.selectColorList */
+		SELECT CODE 
+			, CODE_NM
+		FROM T_CODE
+		WHERE GROUP_CODE = 'COLOR_CD'
+		AND DEL_YN = 'N'
+		ORDER BY ORD_DISP
+	</select>
+	
+	<!-- 일정 등록 처리-->
+	<insert id="insertSchMng"  parameterType="map">
+		/* schMng.insertSchMng */
+		<selectKey resultType="int" keyProperty="scheduleMngSeq" order="AFTER">
+			/** schMng.insertSchMng.selectKey */
+	        SELECT LAST_INSERT_ID() AS SCHEDULE_MNG_SEQ
+    	</selectKey>
+		INSERT INTO T_SCHEDULE_MNG
+			(
+			COMPANY_SEQ
+			, MNG_ID
+			, START_DT
+			, START_TIME
+			, END_DT
+			, END_TIME
+			, SCHEDULE_GUBUN
+			, SCHEDULE_MEMO
+			, CONFIRM_ID
+			, CONFIRM_YN
+			, COLOR_CD
+			, DEL_YN
+			, REG_DT
+			)
+		VALUES
+			(
+			#{companySeq}
+			, #{mngId}
+			, REPLACE(#{startDt},'-','')
+			, REPLACE(#{startTime},':','')
+			, REPLACE(#{endDt},'-','')
+			, REPLACE(#{endTime},':','')
+			, #{scheduleGubun}
+			, #{scheduleMemo}
+			, 'admin'
+			, 'N'
+			, #{colorCd}
+			, 'N'
+			, NOW()
+			)		
+	</insert>
+	
+	<!-- 일정 동반자 등록 처리-->
+	<insert id="insertSchMngUser"  parameterType="map">
+		/* schMng.insertSchMngUser */
+		INSERT INTO T_SCHEDULE_MNG_USER
+			(
+			SCHEDULE_MNG_SEQ
+			, USER_ID
+			)
+		VALUES
+			(
+			#{scheduleMngSeq}
+			, #{userId}
+			)		
+	</insert>
+	
+	<!-- 일정 목록 조회 - 모바일 -->
+	<select id="selectMobileSchMngList"  parameterType="map" resultType="camelMap">
+		/* schMng.selectMobileSchMngList */
+		SELECT SCHEDULE_MNG_SEQ
+				, DATE_FORMAT(STR_TO_DATE(START_DT, '%Y%m%d'),'%Y-%m-%d') START_DT    
+        		, DATE_FORMAT(STR_TO_DATE(START_TIME, '%H%m'),'%H:%m') START_TIME     							
+        		, DATE_FORMAT(STR_TO_DATE(END_DT, '%Y%m%d'),'%Y-%m-%d') END_DT  
+        		, DATE_FORMAT(STR_TO_DATE(END_TIME, '%H%m'),'%H:%m') END_TIME 			
+				, SCHEDULE_GUBUN
+				, GET_CODE('SCHEDULE_GUBUN', SCHEDULE_GUBUN) SCHEDULE_GUBUN_NM
+				, SCHEDULE_MEMO
+				, (
+		            SELECT GROUP_CONCAT(USER_ID)
+		            FROM T_SCHEDULE_MNG_USER
+		            WHERE T.SCHEDULE_MNG_SEQ = SCHEDULE_MNG_SEQ
+          		 ) SCH_USER_ID				
+				, CONFIRM_ID
+				, CONFIRM_YN 
+				, DATE_FORMAT(CONFIRM_DATE,'%Y-%m-%d') CONFIRM_DATE
+				, COLOR_CD
+				, COMPANY_SEQ
+				, (SELECT COMPANY_NM FROM T_COMPANY WHERE COMPANY_SEQ = T.COMPANY_SEQ) AS COMPANY_NM
+				, (SELECT COMPANY_ADDR FROM T_COMPANY WHERE COMPANY_SEQ = T.COMPANY_SEQ) AS COMPANY_ADDR
+				, MNG_ID
+				, (SELECT USER_NM FROM T_MEMBER WHERE USER_ID = T.MNG_ID) AS MNG_NM
+		FROM T_SCHEDULE_MNG T
+		WHERE DEL_YN = 'N'
+		AND SCHEDULE_GUBUN IN ('01', '02', '04')
+		AND ( 
+				SUBSTR(START_DT,1,6) = #{schDt} 
+       			 OR SUBSTR(END_DT,1,6) = #{schDt} 
+        	)
+		<if test="userId != '' and userId != null">
+			AND SCHEDULE_MNG_SEQ IN (
+										SELECT SCHEDULE_MNG_SEQ
+										FROM T_SCHEDULE_MNG
+										WHERE MNG_ID = #{userId}
+										UNION ALL
+										SELECT SCHEDULE_MNG_SEQ
+										FROM T_SCHEDULE_MNG_USER
+										WHERE USER_ID =  #{userId}
+									)	
+		</if>		        	
+		ORDER BY SCHEDULE_MNG_SEQ DESC        	
+	</select>
+	
+	<!-- 일정 확인 여부 조회 -->
+	<select id="selectSchMngConfirm"  parameterType="map" resultType="java.lang.String">
+		/* schMng.selectSchMngConfirm */
+		SELECT CONFIRM_YN 
+		FROM T_SCHEDULE_MNG T
+		WHERE SCHEDULE_MNG_SEQ = #{scheduleMngSeq} 
+		AND DEL_YN = 'N'
+		AND SCHEDULE_GUBUN IN ('01', '02', '04')
+		AND SCHEDULE_MNG_SEQ IN (
+									SELECT SCHEDULE_MNG_SEQ
+									FROM T_SCHEDULE_MNG
+									WHERE MNG_ID = #{userId}
+									UNION ALL
+									SELECT SCHEDULE_MNG_SEQ
+									FROM T_SCHEDULE_MNG_USER
+									WHERE USER_ID =  #{userId}
+								)	
+	</select>
+	
+	<!-- 일정 확인 처리 -->
+	<update id="updateConfirm" parameterType="map">
+		/* schMng.updateConfirm */
+		UPDATE T_SCHEDULE_MNG SET
+			CONFIRM_YN = 'Y'
+			, CONFIRM_DATE = now()
+			, CONFIRM_ID = #{userId}
+		WHERE SCHEDULE_MNG_SEQ = #{scheduleMngSeq} 
+	</update>
+	
+		
+	<!-- 일정 동행자 조회 -->
+	<select id="selectSchMngUserList"  parameterType="map" resultType="camelMap">
+		/* schMng.selectSchMngUserList */
+		SELECT SCHEDULE_MNG_USER_SEQ
+				, SCHEDULE_MNG_SEQ
+				, USER_ID
+				, (SELECT USER_NM FROM T_MEMBER WHERE USER_ID = T_SCHEDULE_MNG_USER.USER_ID) AS USER_NM
+				, (SELECT POSITION FROM T_MEMBER WHERE USER_ID = T_SCHEDULE_MNG_USER.USER_ID) AS POSITION
+				, GET_CODE('POSITION', (SELECT POSITION FROM T_MEMBER WHERE USER_ID = T_SCHEDULE_MNG_USER.USER_ID)) AS POSITION_NM
+		FROM T_SCHEDULE_MNG_USER
+		<if test="scheduleMngSeq != '' and scheduleMngSeq != null">
+		WHERE SCHEDULE_MNG_SEQ = #{scheduleMngSeq}
+		</if>
+		ORDER BY USER_NM
+	</select>
+	
+	<!-- 일정 수정 처리 -->
+	<update id="updateSchMng" parameterType="map">
+		/* schMng.updateSchMng */
+		UPDATE T_SCHEDULE_MNG 
+		SET	COMPANY_SEQ = #{companySeq}
+			, MNG_ID = #{mngId}
+			, START_DT = REPLACE(#{startDt},'-','')
+			, START_TIME = REPLACE(#{startTime},':','')
+			, END_DT = REPLACE(#{endDt},'-','')
+			, END_TIME = REPLACE(#{endTime},':','')
+			, SCHEDULE_GUBUN = #{scheduleGubun}
+			, SCHEDULE_MEMO = #{scheduleMemo}
+			, COLOR_CD = #{colorCd}
+		WHERE SCHEDULE_MNG_SEQ = #{scheduleMngSeq} 
+	</update>
+	
+	<!-- 일정 동행자 삭제 처리 -->
+	<delete id="deleteSchMngUser" parameterType="map">
+		/* schMng.deleteSchMngUser */
+		DELETE
+		FROM T_SCHEDULE_MNG_USER
+		WHERE SCHEDULE_MNG_SEQ = #{scheduleMngSeq} 
+	</delete>
+	
+	<!-- 일정  삭제 처리 -->
+	<update id="deleteSchMng" parameterType="map">
+		/* schMng.deleteSchMng */
+		UPDATE T_SCHEDULE_MNG 
+		SET	DEL_YN = 'Y'
+			, DEL_DT = now()
+		WHERE SCHEDULE_MNG_SEQ = #{scheduleMngSeq} 
+	</update>
+	
+	<!-- 일정 확인 처리 -->
+	<update id="changeConfSchMng" parameterType="map">
+		/* schMng.changeConfSchMng */
+		UPDATE T_SCHEDULE_MNG SET
+		<choose>
+			<when test='confirmYn eq "N" '>
+				CONFIRM_YN = 'Y'
+				, CONFIRM_DATE = now()
+				, CONFIRM_ID = #{userId}
+			</when>
+			<otherwise>
+				CONFIRM_YN = 'N'
+				, CONFIRM_DATE = null
+				, CONFIRM_ID = null
+			</otherwise>
+		</choose>
+		WHERE SCHEDULE_MNG_SEQ = #{scheduleMngSeq} 
+	</update>
+	
+	<!-- 일정 조회 엑셀 다운로드 -->
+	<select id="selectSchMngListAll"  parameterType="map" resultType="camelMap">
+		/* schMng.selectSchMngListAll */
+		SELECT SCHEDULE_MNG_SEQ
+				, COMPANY_SEQ
+				, (SELECT COMPANY_NM FROM T_COMPANY WHERE COMPANY_SEQ = T_SCHEDULE_MNG.COMPANY_SEQ) AS COMPANY_NM
+				, MNG_ID
+				, (SELECT USER_NM FROM T_MEMBER WHERE USER_ID = T_SCHEDULE_MNG.MNG_ID) AS MNG_NM
+				, START_DT
+				, START_TIME
+				, END_DT
+				, END_TIME
+				, SCHEDULE_GUBUN
+				, SCHEDULE_MEMO
+				, CONFIRM_ID
+				, CONFIRM_YN 
+				, CONFIRM_DATE
+				, COLOR_CD
+				, DEL_YN
+				, DEL_DT
+				, REG_DT
+		FROM T_SCHEDULE_MNG
+		WHERE DEL_YN = 'N'
+		AND SCHEDULE_GUBUN IN ('01', '02', '04')
+		<if test="year != '' and year != null">
+		AND ( SUBSTR(START_DT,1,4) = #{year} OR SUBSTR(END_DT,1,4) = #{year} )
+		</if>
+		<if test="month != '' and month != null">
+		AND ( SUBSTR(START_DT,5,2) = #{month} OR SUBSTR(END_DT,5,2) = #{month} )
+		</if>
+	</select>
+	
+	<!-- 일정 조회 엑셀 다운로드(휴가자) -->
+	<select id="selectSchMngVacationListAll"  parameterType="map" resultType="camelMap">
+		/* schMng.selectSchMngVacationListAll */
+		SELECT SCHEDULE_MNG_SEQ
+				, COMPANY_SEQ
+				, (SELECT COMPANY_NM FROM T_COMPANY WHERE COMPANY_SEQ = T_SCHEDULE_MNG.COMPANY_SEQ) AS COMPANY_NM
+				, MNG_ID
+				, (SELECT USER_NM FROM T_MEMBER WHERE USER_ID = T_SCHEDULE_MNG.MNG_ID) AS MNG_NM
+				, START_DT
+				, START_TIME
+				, END_DT
+				, END_TIME
+				, SCHEDULE_GUBUN
+				, SCHEDULE_MEMO
+				, CONFIRM_ID
+				, CONFIRM_YN 
+				, CONFIRM_DATE
+				, COLOR_CD
+				, DEL_YN
+				, DEL_DT
+				, REG_DT
+		FROM T_SCHEDULE_MNG
+		WHERE DEL_YN = 'N'
+		AND SCHEDULE_GUBUN IN ('03')
+		<if test="vYear != '' and vYear != null">
+		AND ( SUBSTR(START_DT,1,4) = #{vYear} OR SUBSTR(END_DT,1,4) = #{vYear} )
+		</if>
+		<if test="vMonth != '' and vMonth != null">
+		AND ( SUBSTR(START_DT,5,2) = #{vMonth} OR SUBSTR(END_DT,5,2) = #{vMonth} )
+		</if>
+	</select>
+</mapper>

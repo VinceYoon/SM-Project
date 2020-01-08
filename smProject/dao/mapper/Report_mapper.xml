@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="report">
+	
+	<!-- 공통 조건 -->
+	<sql id="searchDate">
+		<if test="startDt != '' and startDt != null">
+			AND ((REPLACE(#{startDt},'-','') <![CDATA[ <= ]]> SCH.START_DT AND REPLACE(#{endDt},'-','') >= SCH.START_DT) 
+			OR (REPLACE(#{startDt},'-','') <![CDATA[ <= ]]> SCH.END_DT AND REPLACE(#{endDt},'-','') >= SCH.END_DT) 
+			OR(SCH.START_DT <![CDATA[ <= ]]> REPLACE(#{startDt},'-','') AND SCH.END_DT >= REPLACE(#{endDt},'-','')))
+		</if>	
+	</sql>
+	
+	<!-- 보고서 목록 건수  조회-->
+	<select id="selectReportCnt"  parameterType="map" resultType="int">
+		/* report.selectReportCnt */
+		SELECT count(*)
+		FROM T_REPORT REP
+			, T_SCHEDULE_MNG SCH
+		WHERE REP.SCHEDULE_MNG_SEQ = SCH.SCHEDULE_MNG_SEQ
+		AND SCH.DEL_YN = 'N'
+		AND SCH.SCHEDULE_GUBUN IN ('01', '02', '04')
+		<include refid="report.searchDate" />
+	</select>
+	
+	<!-- 보고서 목록 조회-->
+	<select id="selectReportList"  parameterType="map" resultType="camelMap">
+		/* report.selectReportList */
+		SELECT REP.REPORT_SEQ
+				, REP.SCHEDULE_MNG_SEQ
+				, REP.CONFIRM_ID AS MNG_ID
+				, (
+					SELECT USER_NM 
+					FROM T_MEMBER 
+					WHERE USER_ID = REP.CONFIRM_ID 
+					AND DEL_YN ='N'
+				) AS MNG_NM
+				, (
+					SELECT CODE_NM
+					FROM T_CODE
+					WHERE GROUP_CODE = 'POSITION'
+					AND CODE = (
+								SELECT POSITION
+								FROM T_MEMBER
+								WHERE USER_ID = REP.CONFIRM_ID 
+								AND DEL_YN ='N'
+								)
+					)AS MNG_POSITION_NM						
+				, REP.CONFIRM_YN AS MNG_YN
+				, DATE_FORMAT(REP.CONFIRM_DT, '%Y-%m-%d %H:%i') AS MNG_DT
+				, REP.LIMIT_DT
+				, SCH.COMPANY_SEQ
+				, SCH.START_DT
+				, SCH.START_TIME
+				, SCH.END_DT
+				, SCH.END_TIME 
+				, SCH.CONFIRM_ID
+				, (
+					SELECT USER_NM 
+					FROM T_MEMBER 
+					WHERE USER_ID = SCH.CONFIRM_ID 
+					AND DEL_YN ='N'
+				) AS CONFIRM_NM
+				, (
+					SELECT CODE_NM
+					FROM T_CODE
+					WHERE GROUP_CODE = 'POSITION'
+					AND CODE = (
+								SELECT POSITION
+								FROM T_MEMBER
+								WHERE USER_ID = SCH.CONFIRM_ID 
+								AND DEL_YN ='N'
+								)
+					)AS CONFIRM_POSITION_NM						
+				, SCH.CONFIRM_YN
+				, SCH.CONFIRM_DATE AS CONFIRM_DT
+				, SCH.COMPANY_SEQ
+				, (
+					SELECT COMPANY_NM
+					FROM T_COMPANY
+					WHERE COMPANY_SEQ = SCH.COMPANY_SEQ
+					AND DEL_YN = 'N'
+				) AS COMPANY_NM
+				, CASE
+					WHEN REP.CONFIRM_YN = 'Y' AND SCH.CONFIRM_YN = 'Y' THEN 'status04'
+					WHEN REP.CONFIRM_YN = 'N' AND SCH.CONFIRM_YN = 'Y' THEN 'status02'
+					ELSE 'status01'
+				END AS STATUS_LABEL	
+		FROM T_REPORT REP
+			, T_SCHEDULE_MNG SCH
+		WHERE REP.SCHEDULE_MNG_SEQ = SCH.SCHEDULE_MNG_SEQ
+		AND SCH.DEL_YN = 'N'
+		AND SCH.SCHEDULE_GUBUN IN ('01', '02', '04')
+		<include refid="report.searchDate" />
+		ORDER BY REPORT_SEQ DESC
+		LIMIT  #{beginUnitPage}, #{rowSize}	
+	</select>
+	
+	<!-- 보고서 완료 취소 처리 -->
+	<update id="cancelReport"  parameterType="map">
+		/* report.cancelReport */
+		UPDATE T_REPORT
+		SET CONFIRM_YN = 'N'
+			, CONFIRM_DT = NULL
+		WHERE REPORT_SEQ = #{reportSeq}
+	</update>
+	
+	<!-- 보고서 마감일 지정 처리  -->
+	<update id="saveLimitDt"  parameterType="map">
+		/* report.saveLimitDt */
+		UPDATE T_REPORT
+		SET LIMIT_DT = STR_TO_DATE(#{limitDt}, '%Y%m%d')
+		WHERE REPORT_SEQ = #{reportSeq}
+	</update>
+	
+	<!-- 보고서 관리 전체 목록 조회 -->
+	<select id="selectReportListAll"  parameterType="map" resultType="camelMap">
+		/* report.selectReportListAll */
+		SELECT REP.REPORT_SEQ
+				, REP.SCHEDULE_MNG_SEQ
+				, REP.CONFIRM_ID AS MNG_ID
+				, (
+					SELECT USER_NM 
+					FROM T_MEMBER 
+					WHERE USER_ID = REP.CONFIRM_ID 
+					AND DEL_YN ='N'
+				) AS MNG_NM
+				, (
+					SELECT CODE_NM
+					FROM T_CODE
+					WHERE GROUP_CODE = 'POSITION'
+					AND CODE = (
+								SELECT POSITION
+								FROM T_MEMBER
+								WHERE USER_ID = REP.CONFIRM_ID 
+								AND DEL_YN ='N'
+								)
+					)AS MNG_POSITION_NM						
+				, REP.CONFIRM_YN AS MNG_YN
+				, DATE_FORMAT(REP.CONFIRM_DT, '%Y-%m-%d %H:%i') AS MNG_DT
+				, REP.LIMIT_DT
+				, SCH.COMPANY_SEQ
+				, SCH.START_DT
+				, SCH.START_TIME
+				, SCH.END_DT
+				, SCH.END_TIME 
+				, SCH.CONFIRM_ID
+				, (
+					SELECT USER_NM 
+					FROM T_MEMBER 
+					WHERE USER_ID = SCH.CONFIRM_ID 
+					AND DEL_YN ='N'
+				) AS CONFIRM_NM
+				, (
+					SELECT CODE_NM
+					FROM T_CODE
+					WHERE GROUP_CODE = 'POSITION'
+					AND CODE = (
+								SELECT POSITION
+								FROM T_MEMBER
+								WHERE USER_ID = SCH.CONFIRM_ID 
+								AND DEL_YN ='N'
+								)
+					)AS CONFIRM_POSITION_NM						
+				, SCH.CONFIRM_YN
+				, SCH.CONFIRM_DATE AS CONFIRM_DT
+				, SCH.COMPANY_SEQ
+				, (
+					SELECT COMPANY_NM
+					FROM T_COMPANY
+					WHERE COMPANY_SEQ = SCH.COMPANY_SEQ
+					AND DEL_YN = 'N'
+				) AS COMPANY_NM
+				, CASE
+					WHEN REP.CONFIRM_YN = 'Y' AND SCH.CONFIRM_YN = 'Y' THEN 'status04'
+					WHEN REP.CONFIRM_YN = 'N' AND SCH.CONFIRM_YN = 'Y' THEN 'status02'
+					ELSE 'status01'
+				END AS STATUS_LABEL	
+		FROM T_REPORT REP
+			, T_SCHEDULE_MNG SCH
+		WHERE REP.SCHEDULE_MNG_SEQ = SCH.SCHEDULE_MNG_SEQ
+		AND SCH.DEL_YN = 'N'
+		AND SCH.SCHEDULE_GUBUN IN ('01', '02', '04')
+		<if test="companySeq != '' and companySeq != null">
+		AND SCH.COMPANY_SEQ = #{companySeq}
+		</if>
+		ORDER BY REPORT_SEQ DESC
+	</select>
+	
+	<!-- 보고서 등록 처리-->
+	<insert id="insertReport"  parameterType="map">
+		/* report.insertReport */
+		INSERT INTO T_REPORT
+			(
+			SCHEDULE_MNG_SEQ
+			, CONFIRM_ID
+			, CONFIRM_YN
+			, LIMIT_DT
+			)
+		VALUES
+			(
+			#{scheduleMngSeq}
+			, #{mngId}
+			, 'N'
+			, date_format(date_add(now(), interval 7 day), '%Y%m%d')
+			)		
+	</insert>
+	
+	<!-- 보고서 상세 상태 조회 -->
+	<select id="selectReportStat"  parameterType="map" resultType="camelMap">
+		/* report.selectReportStat */
+		SELECT R.CONFIRM_YN
+				, DATE_FORMAT(R.LIMIT_DT, '%Y%m%d') LIMIT_DT
+				, SCH.MNG_ID
+		FROM T_REPORT R
+			, T_SCHEDULE_MNG SCH
+		WHERE SCH.SCHEDULE_MNG_SEQ = R.SCHEDULE_MNG_SEQ
+		AND REPORT_SEQ = #{reportSeq}
+	</select>
+	
+	<!-- 보고서 완료 처리 -->
+	<update id="updateReportConf" parameterType="map">
+		/* report.updateReportConf */
+		UPDATE T_REPORT
+		SET 
+			CONFIRM_YN = 'Y'
+			, CONFIRM_DT = NOW()
+			, CONFIRM_ID = #{userId}
+		WHERE REPORT_SEQ = #{reportSeq}
+	</update>
+	
+	<!-- 보고서 목록 조회 (모바일) -->
+	<select id="selectMobileReportList"  parameterType="map" resultType="camelMap">
+		/* report.selectMobileReportList */
+		SELECT REP.REPORT_SEQ  
+        		, SCH.COMPANY_SEQ
+				, (
+					SELECT COMPANY_NM
+					FROM T_COMPANY
+					WHERE COMPANY_SEQ = SCH.COMPANY_SEQ			
+				) AS COMPANY_NM
+        		, DATE_FORMAT(LIMIT_DT, '%Y-%m-%d') LIMIT_DT
+        		, DATE_FORMAT(REP.CONFIRM_DT, '%Y-%m-%d') AS CONFIRM_DT
+        		, REP.CONFIRM_YN
+	      		, REP.CONFIRM_ID
+				, (
+					SELECT USER_NM 
+					FROM T_MEMBER 
+					WHERE USER_ID = REP.CONFIRM_ID 
+					AND DEL_YN ='N'
+				) AS CONFIRM_NM			
+			 	, SCH.MNG_ID
+				, (
+					SELECT USER_NM 
+					FROM T_MEMBER 
+					WHERE USER_ID = SCH.MNG_ID					
+				) AS MNG_NM								
+				, SCH.CONFIRM_ID SCH_CONFIRM_ID         
+				, (
+					SELECT USER_NM 
+					FROM T_MEMBER 
+					WHERE USER_ID = SCH.CONFIRM_ID 					
+				) AS SCH_CONFIRM_NM		
+				, SCH.CONFIRM_YN SCH_CONFIRM_YN
+        		, DATE_FORMAT(SCH.CONFIRM_DATE, '%Y-%m-%d') AS SCH_CONFIRM_DT
+		FROM T_REPORT REP
+			, T_SCHEDULE_MNG SCH
+		WHERE REP.SCHEDULE_MNG_SEQ = SCH.SCHEDULE_MNG_SEQ
+		AND SCH.DEL_YN = 'N'
+		AND SCH.SCHEDULE_GUBUN IN ('01', '02', '04')
+		AND DATE_FORMAT(SCH.REG_DT, '%Y%m') = #{schDt}
+		<if test="userId != '' and userId != null">
+			AND SCH.MNG_ID = #{userId}
+		</if>
+		ORDER BY REPORT_SEQ DESC
+	</select>
+	
+	<!-- 보고서  수정 처리 -->
+	<update id="updateReport" parameterType="map">
+		/* report.updateReport */
+		UPDATE T_REPORT
+		SET CONFIRM_ID = #{mngId}
+		WHERE REPORT_SEQ = #{reportSeq}
+	</update>
+</mapper>

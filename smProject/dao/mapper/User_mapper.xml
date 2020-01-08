@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="user">
+	
+	<!-- 사용자 목록 건수 조회 -->
+	<select id="selectUserCnt"  parameterType="map" resultType="int">
+		/* user.selectUserCnt */
+		SELECT count(*)
+		FROM T_MEMBER
+		WHERE DEL_YN = 'N'		
+		<if test="userNm != '' and userNm != null">
+			AND USER_NM like CONCAT('%', #{userNm}, '%')
+		</if>	
+	</select>
+	
+	<!-- 사용자 목록 조회 -->
+	<select id="selectUserList"  parameterType="map" resultType="camelMap">
+		/* user.selectUserList */
+		SELECT USER_ID
+				, USER_NM
+				, POSITION
+				, GET_CODE('POSITION', POSITION) POSITION_NM
+				, PHONE
+				, PR_FILE
+				, AUTH
+		FROM T_MEMBER
+		WHERE DEL_YN = 'N'
+		<if test="userNm != '' and userNm != null">
+			AND USER_NM like CONCAT('%', #{userNm}, '%')
+		</if>
+		ORDER BY USER_NM
+		LIMIT  #{beginUnitPage}, #{rowSize}
+	</select>
+
+	<!-- 사용자 상세 조회 -->
+	<select id="selectUserView"  parameterType="map" resultType="camelMap">
+		/* user.selectUserView */
+		SELECT USER_ID
+				, USER_NM
+				, POSITION
+				, GET_CODE('POSITION', POSITION) POSITION_NM
+				, PHONE
+				, PR_FILE
+				, CONCAT('/resources/profile/', PR_FILE) MOBILE_PR_FILE
+				, AUTH
+				, GET_CODE('AUTH', AUTH) AUTH_NM
+				, DEL_YN
+				, PWD
+		FROM T_MEMBER
+		WHERE USER_ID = #{userId}
+	</select>
+	
+	<!-- 직급 목록 조회 -->
+	<select id="selectPositionList"  parameterType="map" resultType="camelMap">
+		/* user.selectPositionList */
+		SELECT CODE
+				, CODE_NM
+				, ORD_DISP
+				, CODE_DESC
+		FROM T_CODE
+		WHERE GROUP_CODE = 'POSITION'
+		AND DEL_YN = 'N'	
+		ORDER BY ORD_DISP
+	</select>
+	
+	<!-- 사용자 구분 목록 조회 -->
+	<select id="selectAuthList"  parameterType="map" resultType="camelMap">
+		/* user.selectAuthList */
+		SELECT CODE
+				, CODE_NM
+				, ORD_DISP
+				, CODE_DESC
+		FROM T_CODE
+		WHERE GROUP_CODE = 'AUTH'
+		AND DEL_YN = 'N'	
+		ORDER BY ORD_DISP
+	</select>
+	
+	<!-- 아이디 중복 확인 -->
+	<select id="selectUserIdChk"  parameterType="map" resultType="camelMap">
+		/* user.selectUserIdChk */
+		SELECT USER_ID
+				, COUNT(*) AS COUNT
+		FROM T_MEMBER
+		WHERE DEL_YN = 'N'
+		AND USER_ID = #{userId}
+	</select>
+	
+	<!-- 계정 등록 처리-->
+	<insert id="insertUser"  parameterType="map">
+		/* user.insertUser */
+		INSERT INTO T_MEMBER
+			(
+			USER_ID
+			, PWD
+			, USER_NM
+			, POSITION
+			, PHONE
+			, PR_FILE
+			, AUTH
+			, DEL_YN
+			, REG_DT
+			)
+		VALUES
+			(
+			#{userId}
+			, #{pwd}
+			, #{userNm}
+			, #{position}
+			, #{phone}
+			, #{prFile}
+			, #{auth}
+			, 'N'
+			, NOW()
+			)		
+	</insert>
+	
+	<!-- 계정 수정 처리-->
+	<update id="updateUser"  parameterType="map">
+		/* user.updateUser */
+		UPDATE T_MEMBER
+		SET USER_NM = #{userNm}
+			<if test="pwd != '' and pwd != null">
+			, PWD = #{pwd}
+			</if>
+			, POSITION = #{position}
+			, PHONE = #{phone}
+			, PR_FILE = #{prFile}
+			, AUTH = #{auth}
+			, DEL_YN = 'N'
+			, REG_DT = NOW()
+		WHERE USER_ID = #{userId}
+	</update>
+	
+	<!-- 계정 삭제 처리-->
+	<update id="deleteUser"  parameterType="map">
+		/* user.deleteUser */
+		UPDATE T_MEMBER
+		SET DEL_YN = 'Y'
+			, DEL_DT = NOW()
+		WHERE USER_ID IN 
+		<foreach collection="params" item="item" index="index" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+	</update>
+	
+	<!-- 사용자 전체 목록 조회 (앱)-->
+	<select id="selectUserAllList"  parameterType="map" resultType="camelMap">
+		/* user.selectUserAllList */
+		SELECT USER_ID
+				, USER_NM
+				, POSITION
+				, GET_CODE('POSITION', POSITION) POSITION_NM
+				, PHONE
+				, CONCAT('/resources/profile/', PR_FILE) PR_FILE
+				, AUTH
+				, GET_CODE('AUTH', AUTH) AUTH_NM
+		FROM T_MEMBER
+		WHERE DEL_YN = 'N'
+		ORDER BY USER_NM
+	</select>
+	
+	<!-- 사용자 전체 목록 조회  (웹)-->
+	<select id="selectUserListAll"  parameterType="map" resultType="camelMap">
+		/* user.selectUserListAll */
+		SELECT USER_ID
+				, USER_NM
+				, POSITION
+				, GET_CODE('POSITION', POSITION) POSITION_NM
+				, PHONE
+				, PR_FILE
+				, AUTH
+				, GET_CODE('AUTH', AUTH) AUTH_NM
+		FROM T_MEMBER
+		WHERE DEL_YN = 'N'
+		<if test="userNm != '' and userNm != null">
+			AND USER_NM like CONCAT('%', #{userNm}, '%')
+		</if>
+		<if test="userId != '' and userId != null">
+			AND USER_ID NOT IN (#{userId}, 'admin')
+		</if>
+		ORDER BY USER_NM
+	</select>
+</mapper>	

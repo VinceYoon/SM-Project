@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="company">
+
+	<!-- 업체 목록 건수  조회-->
+	<select id="selectCompanyCnt"  parameterType="map" resultType="int">
+		/* company.selectCompanyCnt */
+		SELECT count(*)
+		FROM T_COMPANY
+		WHERE DEL_YN = 'N'			
+		<if test="citySelect != '' and citySelect != null">
+			AND CODE_SI = #{citySelect}
+			<if test="townSelect != '' and townSelect != null">
+				AND CODE_GU = #{townSelect}
+			</if>			
+		</if>			
+		<if test="companyNm != '' and companyNm != null">
+			AND COMPANY_NM like CONCAT('%', #{companyNm}, '%')
+		</if>			
+	</select>
+	
+	<!-- 업체 목록 조회 -->
+	<select id="selectCompanyList"  parameterType="map" resultType="camelMap">
+		/* company.selectCompanyList */
+		SELECT COMPANY_SEQ
+				, COMPANY_NM
+				, COMPANY_ADDR
+				, COMPANY_TYPE
+				, (
+				SELECT CODE_NM FROM T_CODE WHERE GROUP_CODE = 'COMPANY_TYPE' AND CODE = COMPANY_TYPE AND DEL_YN = 'N'
+				) AS COMPANY_TYPE_NM
+				, USE_DT
+				, MNG_NM
+				, PHONE
+				, ETC
+				, CODE_SI
+				, (
+				SELECT CODE_NM FROM T_CODE WHERE GROUP_CODE = 'JUSO' AND CODE = CODE_SI AND DEL_YN = 'N'
+				) AS CODE_SI_NM 
+				, CODE_GU
+				, (
+				SELECT CODE_NM FROM T_CODE WHERE GROUP_CODE = CODE_SI AND CODE = CODE_GU AND DEL_YN = 'N'
+				) AS CODE_GU_NM
+		FROM T_COMPANY
+		WHERE DEL_YN = 'N'
+		<if test="citySelect != '' and citySelect != null">
+			AND CODE_SI = #{citySelect}
+			<if test="townSelect != '' and townSelect != null">
+				AND CODE_GU = #{townSelect}
+			</if>			
+		</if>			
+		<if test="companyNm != '' and companyNm != null">
+			AND COMPANY_NM like CONCAT('%', #{companyNm}, '%')
+		</if>		
+		ORDER BY COMPANY_SEQ
+		LIMIT  #{beginUnitPage}, #{rowSize}							
+	</select>
+	
+	<!-- 업체 상세 조회 -->
+	<select id="selectCompanyView"  parameterType="map" resultType="camelMap">
+		/* company.selectCompanyView */
+		SELECT COMPANY_SEQ
+				, COMPANY_NM
+				, COMPANY_ADDR
+				, COMPANY_TYPE
+				, USE_DT
+				, MNG_NM
+				, PHONE
+				, ETC
+				, CODE_SI
+				, CODE_GU
+				, DEL_YN
+		FROM T_COMPANY
+		WHERE COMPANY_SEQ = #{companySeq}
+	</select>
+	
+	<!-- 지역 구분 목록(서울경기, 서울시, 경기도) 조회-->
+	<select id="selectCityList"  parameterType="map" resultType="camelMap">
+		/* company.selectCityList */
+		SELECT CODE
+				, CODE_NM
+				, ORD_DISP
+				, CODE_DESC
+		FROM T_CODE
+		WHERE GROUP_CODE = 'JUSO'
+		AND DEL_YN = 'N'	
+		ORDER BY ORD_DISP			
+	</select>
+	
+	<!-- 지역 상세 목록(구, 군) 조회-->
+	<select id="selectTownList"  parameterType="map" resultType="camelMap">
+		/* company.selectTownList */
+		SELECT CODE
+				, CODE_NM
+				, ORD_DISP
+				, CODE_DESC
+		FROM T_CODE
+		WHERE GROUP_CODE = #{city}
+		AND DEL_YN = 'N'	
+		ORDER BY CODE_NM			
+	</select>
+
+	<!-- 업체 구분 목록 조회 -->
+	<select id="selectCompanyTypeList"  parameterType="map" resultType="camelMap">
+		/* company.selectCompanyTypeList */
+		SELECT CODE
+				, CODE_NM
+				, ORD_DISP
+				, CODE_DESC
+		FROM T_CODE
+		WHERE GROUP_CODE = 'COMPANY_TYPE'
+		AND DEL_YN = 'N'	
+		ORDER BY ORD_DISP			
+	</select>
+	
+	<!-- 업체 관리 등록 처리-->
+	<insert id="insertCompany"  parameterType="map">
+		/* company.insertCompany */
+		INSERT INTO T_COMPANY
+			(
+			COMPANY_NM
+			, COMPANY_ADDR
+			, COMPANY_TYPE
+			, MNG_NM
+			, PHONE
+			, ETC
+			, CODE_SI
+			, CODE_GU
+			, DEL_YN
+			, REG_DT
+			)
+		VALUES
+			(
+			#{companyNm}
+			, #{companyAddr}
+			, #{companyType}
+			, #{mngNm}
+			, #{phone}
+			, #{etc}
+			, #{codeSi}
+			, #{codeGu}
+			, 'N'
+			, NOW()
+			)		
+	</insert>
+	
+	<!-- 업체 관리 수정 처리-->
+	<update id="updateCompany"  parameterType="map">
+		/* company.updateCompany */
+		UPDATE T_COMPANY
+		SET COMPANY_NM = #{companyNm}
+			, COMPANY_ADDR = #{companyAddr}
+			, COMPANY_TYPE = #{companyType}
+			, USE_DT = #{useDt}
+			, MNG_NM = #{mngNm}
+			, PHONE = #{phone}
+			, ETC = #{etc}
+			, CODE_SI = #{codeSi}
+			, CODE_GU = #{codeGu}
+			, DEL_YN = 'N'
+			, REG_DT = NOW()
+		WHERE COMPANY_SEQ = #{companySeq}
+	</update>
+	
+	<!-- 업체 관리 삭제 처리-->
+	<update id="deleteCompany"  parameterType="map">
+		/* company.deleteCompany */
+		UPDATE T_COMPANY
+		SET DEL_YN = 'Y'
+			, DEL_DT = NOW()
+		WHERE COMPANY_SEQ IN 
+		<foreach collection="params" item="item" index="index" open="(" separator="," close=")">
+            #{item}
+        </foreach>
+	</update>
+	<!-- 업체별 일정 조회 -->
+	<select id="selectSchCompanyList" parameterType="map" resultType="camelMap">
+		/* company.selectSchCompanyList */
+		SELECT SCHEDULE_MNG_SEQ
+				, COMPANY_SEQ
+				, (
+					SELECT COMPANY_NM 
+					FROM T_COMPANY
+					WHERE COMPANY_SEQ = A.COMPANY_SEQ
+				) COMPANY_NM				
+				, DATE_FORMAT(STR_TO_DATE(START_DT, '%Y%m%d'),'%Y-%m-%d') START_DT    
+        		, DATE_FORMAT(STR_TO_DATE(START_TIME, '%H%m'),'%H:%m') START_TIME     							
+        		, DATE_FORMAT(STR_TO_DATE(END_DT, '%Y%m%d'),'%Y-%m-%d') END_DT  
+        		, DATE_FORMAT(STR_TO_DATE(END_TIME, '%H%m'),'%H:%m') START_TIME 		
+				, CONFIRM_ID
+				, CONFIRM_YN
+				, DATE_FORMAT(CONFIRM_DATE, '%Y-%m-%d') CONFIRM_DATE				
+				, COLOR_CD
+        		, (
+		            SELECT GROUP_CONCAT(USER_ID)
+		            FROM T_SCHEDULE_MNG_USER
+		            WHERE A.SCHEDULE_MNG_SEQ = SCHEDULE_MNG_SEQ
+          		 ) SCH_USER_ID
+				, MNG_ID
+		FROM T_SCHEDULE_MNG A 
+		WHERE DEL_YN = 'N'
+		AND COMPANY_SEQ = #{companySeq}
+		AND SCHEDULE_GUBUN IN ('01','02','04')
+		ORDER BY SCHEDULE_MNG_SEQ DESC
+	</select>
+	
+	<!-- 업체 전체 목록 조회 -->
+	<select id="selectCompanyListAll"  parameterType="map" resultType="camelMap">
+		/* company.selectCompanyListAll */
+		SELECT COMPANY_SEQ
+				, COMPANY_NM
+				, COMPANY_ADDR
+				, COMPANY_TYPE
+				, (
+				SELECT CODE_NM FROM T_CODE WHERE GROUP_CODE = 'COMPANY_TYPE' AND CODE = COMPANY_TYPE AND DEL_YN = 'N'
+				) AS COMPANY_TYPE_NM
+				, USE_DT
+				, MNG_NM
+				, PHONE
+				, ETC
+				, CODE_SI
+				, (
+				SELECT CODE_NM FROM T_CODE WHERE GROUP_CODE = 'JUSO' AND CODE = CODE_SI AND DEL_YN = 'N'
+				) AS CODE_SI_NM 
+				, CODE_GU
+				, (
+				SELECT CODE_NM FROM T_CODE WHERE GROUP_CODE = CODE_SI AND CODE = CODE_GU AND DEL_YN = 'N'
+				) AS CODE_GU_NM
+		FROM T_COMPANY
+		WHERE DEL_YN = 'N'
+		<if test="citySelect != '' and citySelect != null">
+			AND CODE_SI = #{citySelect}
+			<if test="townSelect != '' and townSelect != null">
+				AND CODE_GU = #{townSelect}
+			</if>			
+		</if>			
+		<if test="companyNm != '' and companyNm != null">
+			AND COMPANY_NM like CONCAT('%', #{companyNm}, '%')
+		</if>	
+		<if test="companySeq != '' and companySeq != null">
+			AND COMPANY_NM like CONCAT('%', #{companyNm}, '%')
+		</if>		
+		ORDER BY COMPANY_SEQ
+	</select>
+	
+	<!-- 전체 구 / 시 리스트 -->
+	<select id="selectGuSiAllList"  parameterType="map" resultType="camelMap">
+		/* company.selectGuSiAllList */
+		SELECT GROUP_CODE
+        		, CODE
+				, CODE_NM
+				, ORD_DISP
+				, CODE_DESC
+		FROM T_CODE
+		WHERE GROUP_CODE IN ( 
+								SELECT CODE 
+								FROM T_CODE 
+								WHERE GROUP_CODE = 'JUSO' 
+								AND DEL_YN = 'N'
+							)
+		AND DEL_YN = 'N'	
+    	ORDER BY GROUP_CODE	DESC	, ORD_DISP		
+	</select>
+	
+</mapper>
